@@ -1,19 +1,17 @@
 package com.socrata.decima
 
+import akka.actor.{ActorSystem, Props}
 import com.socrata.decima.actors.Reaper.WatchMe
 import com.socrata.decima.actors.SqsDeployProducer.PollDeploysMessage
-import com.typesafe.config.ConfigFactory
-
+import com.socrata.decima.actors.{DeployConsumer, Reaper, SqsDeployProducer}
 import com.socrata.decima.config.DecimaPollerConfig
-import com.socrata.decima.actors.{Reaper, SqsDeployProducer, DeployConsumer}
 import com.socrata.decima.data_access.DeploymentAccessWithPostgres
 import com.socrata.decima.database.{ActualPostgresDriver, DeploymentDAO}
 import com.socrata.decima.util.DataSourceFromConfig
+import com.typesafe.config.ConfigFactory
 
-import akka.actor.{Props, ActorSystem}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext
-import ExecutionContext.Implicits.global
 import scala.slick.jdbc.JdbcBackend._
 
 object Poller extends App {

@@ -2,17 +2,17 @@ package com.socrata.decima.actors
 
 import java.util.concurrent.Future
 
-import akka.actor.{ActorLogging, Actor}
+import akka.actor.{Actor, ActorLogging}
 import com.amazonaws.handlers.AsyncHandler
-import com.amazonaws.services.sqs.{AmazonSQSAsyncClient, AmazonSQSAsync}
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, ReceiveMessageResult}
+import com.amazonaws.services.sqs.{AmazonSQSAsync, AmazonSQSAsyncClient}
 import com.fasterxml.jackson.core.JsonParseException
+import com.socrata.decima.actors.DeployConsumer.{DeployMessage, DeployMessageMetadata, DeployProcessedMessage}
 import com.socrata.decima.config.PollerAwsConfig
-import com.socrata.decima.util.JsonFormats
-import org.json4s.MappingException
-import org.json4s.jackson.Serialization._
-import com.socrata.decima.actors.DeployConsumer.{DeployMessageMetadata, DeployProcessedMessage, DeployMessage}
 import com.socrata.decima.models.Deploy
+import com.socrata.decima.util.JsonFormats
+import org.json4s.{MappingException, _}
+import org.json4s.jackson.JsonMethods._
 
 import scala.collection.JavaConverters._
 
@@ -24,6 +24,7 @@ object SqsDeployProducer {
 
 class SqsDeployProducer(config: PollerAwsConfig) extends Actor
   with ActorLogging {
+  // scalastyle:ignore import.grouping
   import SqsDeployProducer._
 
   implicit val jsonFormats = JsonFormats.Formats
@@ -33,7 +34,7 @@ class SqsDeployProducer(config: PollerAwsConfig) extends Actor
   private var sqsClient: AmazonSQSAsync = _
   private var queueUrl: String = _
 
-  override def preStart() = {
+  override def preStart(): Unit = {
     log.debug("Initializing SQS client")
     sqsClient = new AmazonSQSAsyncClient(config.credentials, config.clientConfig)
                      .withEndpoint(config.sqs.baseEndpoint)
@@ -42,11 +43,13 @@ class SqsDeployProducer(config: PollerAwsConfig) extends Actor
     log.info(s"Initialized SQS client. Queue URL: $queueUrl")
   }
 
-  override def postStop() = {
+  override def postStop(): Unit = {
     log.info("Shutdown received. Cancelling any in-flight SQS requests")
+    // scalastyle:ignore null simplify.boolean.expression
     if (messageReceiveFuture != null && messageReceiveFuture.cancel(true)) {
       log.warning("Cancelled in-flight receive request")
     }
+    // scalastyle:ignore null simplify.boolean.expression
     if (messageDeleteFuture != null && messageDeleteFuture.cancel(true)) {
       log.warning("Cancelled in-flight delete request")
     }
@@ -55,7 +58,7 @@ class SqsDeployProducer(config: PollerAwsConfig) extends Actor
     log.info("Completed shutdown of SQS client")
   }
 
-  def receive = {
+  def receive: PartialFunction[Any, Unit] = {
     case PollDeploysMessage =>
       // Kickoff an async request to SQS
       log.debug(s"Polling for events on queue: $queueUrl")
@@ -71,22 +74,24 @@ class SqsDeployProducer(config: PollerAwsConfig) extends Actor
       messageDeleteFuture = sqsClient.deleteMessageAsync(request, MessageDeletedHandler)
   }
 
-  private def die() = context.system.stop(self)
+  private def die(): Unit = context.system.stop(self)
 
   private object MessageReceivedHandler extends AsyncHandler[ReceiveMessageRequest, ReceiveMessageResult] {
-    def onSuccess(request: ReceiveMessageRequest, result: ReceiveMessageResult) = {
+    def onSuccess(request: ReceiveMessageRequest, result: ReceiveMessageResult): Unit = {
       result.getMessages.asScala.foreach { message =>
         val body = message.getBody
         val metadata = SqsDeployMetadata(message.getReceiptHandle)
         log.info(s"Received queue message. Id: '${message.getMessageId}'")
         log.debug(s"Message Id: '${message.getMessageId}'. Message body: '${message.getBody}'")
         try {
-          val deploy = read[Deploy](body)
+          val json = parse(body).camelizeKeys
+          val deploy = json.extract[Deploy]
           log.debug(s"Successfully parsed deploy: $deploy")
           context.actorSelection("../consumer") ! DeployMessage(deploy, metadata)
         } catch {
-          case _: MappingException | _: JsonParseException =>
+          case ex @ (_: MappingException | _:JsonParseException) =>
             log.error(s"Unable to parse message body: '$body'. Signalling complete processing")
+            log.error(s"Exception: $ex")
             self ! DeployProcessedMessage(metadata)
         }
       }
@@ -94,7 +99,7 @@ class SqsDeployProducer(config: PollerAwsConfig) extends Actor
       self ! PollDeploysMessage
     }
 
-    def onError(ex: Exception) = {
+    def onError(ex: Exception): Unit = {
       log.error(ex, "Exception while receiving message from SQS")
       die()
     }

@@ -7,7 +7,7 @@ object DecimaPoller {
   lazy val settings: Seq[Setting[_]] =
     BuildSettings.projectSettings(assembly = true) ++
       Seq(
-        mainClass := Some("com.socrata.decima.poll.Poller"),
+        mainClass := Some("com.socrata.decima.Poller"),
         libraryDependencies ++=
           Groups.Akka ++
           Seq(

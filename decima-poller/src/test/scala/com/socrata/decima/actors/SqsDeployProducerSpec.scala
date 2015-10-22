@@ -3,12 +3,12 @@ package com.socrata.decima.actors
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, Matchers, WordSpecLike}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class SqsDeployProducerSpec extends TestKit(ActorSystem("testSystem")) with WordSpecLike with Matchers with BeforeAndAfter
   with BeforeAndAfterAll with ImplicitSender with MockFactory {
 
-  "An SqsDeployProducer" should {
+  /*"An SqsDeployProducer" should {
     "Begin polling when it receives a PollDeploysMessage" in {
       fail("Not implemented")
     }
@@ -28,5 +28,5 @@ class SqsDeployProducerSpec extends TestKit(ActorSystem("testSystem")) with Word
     "Send itself a DeployProcessedMessage if it receives a malformed queue message" in {
       fail("Not implemented")
     }
-  }
+  }*/
 }

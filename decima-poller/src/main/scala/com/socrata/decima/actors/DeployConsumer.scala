@@ -1,7 +1,6 @@
 package com.socrata.decima.actors
 
-import akka.actor.{ActorLogging, Actor}
-
+import akka.actor.{Actor, ActorLogging}
 import com.socrata.decima.data_access.DeploymentAccess
 import com.socrata.decima.data_access.DeploymentAccess.{DeployCreated, DuplicateDeploy}
 import com.socrata.decima.models.Deploy
@@ -14,17 +13,18 @@ object DeployConsumer {
 }
 
 class DeployConsumer(deploymentAccess: DeploymentAccess) extends Actor with ActorLogging {
+  // scalastyle:ignore import.grouping
   import DeployConsumer._
 
-  override def preStart() = {
+  override def preStart(): Unit = {
     log.info("Starting DeployConsumer")
   }
 
-  override def postStop() = {
+  override def postStop(): Unit = {
     log.info("Shutting down DeployConsumer")
   }
 
-  def receive = {
+  def receive: PartialFunction[Any, Unit] = {
     case DeployMessage(deploy, metadata) =>
       log.debug(s"Saving deploy event: $deploy")
       sender ! deploymentAccess.createDeploy(deploy).map {
